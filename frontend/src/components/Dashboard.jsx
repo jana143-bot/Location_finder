@@ -88,16 +88,24 @@ const Dashboard = () => {
         return;
       }
       try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-        const response = await axios.get(`${apiUrl}/api/locations/search`, {
-          params: { q: trimmedQuery, language: 'en' },
-          headers: { 'Authorization': 'Bearer demo-local-token' }
+        const response = await axios.get('https://nominatim.openstreetmap.org/search', {
+          params: { 
+            q: trimmedQuery, 
+            format: 'json', 
+            addressdetails: 1, 
+            limit: 5 
+          },
+          headers: { 
+            'User-Agent': 'LocationFinderDashboard/1.0',
+            'Accept-Language': 'en'
+          }
         });
-        if (response.data.success) {
-          setResults(response.data.data);
-          searchCache.current[trimmedQuery] = response.data.data;
+        
+        if (response.data && Array.isArray(response.data)) {
+          setResults(response.data);
+          searchCache.current[trimmedQuery] = response.data;
           // Update map with first result and select it
-          const first = response.data.data[0];
+          const first = response.data[0];
           if (first && mapRef.current) {
             mapRef.current.updateLocation(parseFloat(first.lat), parseFloat(first.lon));
             setSelectedLocation(first);
@@ -107,9 +115,9 @@ const Dashboard = () => {
         console.error('Search error:', err);
         if (err.response && err.response.status === 429) {
           setRateLimitWarning(true);
-          setError(err.response.data.error.message || 'Rate limit exceeded.');
+          setError('Rate limit exceeded from mapping service. Please slow down.');
         } else {
-          setError(err.response?.data?.error?.message || 'An error occurred during search. Or the server might be unreachable.');
+          setError('An error occurred during search. The mapping service might be unreachable.');
         }
       } finally {
         setLoading(false);
